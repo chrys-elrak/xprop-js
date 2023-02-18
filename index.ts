@@ -2,4 +2,4 @@ import X from './src/xprop';
 
 const x = new X();
 
-x.run();
+console.log(x.getWindowByName('Visual Studio Code'));
