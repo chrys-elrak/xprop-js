@@ -4,6 +4,7 @@ import { canBeANumber } from './utils/canBeNumber';
 
 export default class XPROP {
   params: { [key: string]: any } = {};
+  errorLogs: { [key: string]: any } = {};
   constructor() {
     checkCommand('xprop')
       // .then((result) => {
@@ -16,13 +17,28 @@ export default class XPROP {
   }
 
   xprop() {
-    const a = child_process.execSync('xprop', {
+    const process = child_process.execSync('xprop', {
       encoding: 'utf-8',
     });
-    this.params = this.getProps(a);
+    this.params = this.getProps(process);
   }
 
-  help() {}
+  /**
+   * FIXME: XIM_SERVERS(ATOM) and AT_SPI_BUS(STRING) contain '=' so the key value pair is not split correctly, the value is null
+   */
+  root() {
+    const process = child_process.execSync('xprop -root', {
+      encoding: 'utf-8',
+    });
+    this.params = this.getProps(process);
+  }
+
+  grammar() {
+    const process = child_process.execSync('xprop -grammar', {
+      encoding: 'utf-8',
+    });
+    this.params = this.getProps(process);
+  }
 
   get version(): string {
     const [, version] = child_process
@@ -32,18 +48,19 @@ export default class XPROP {
     return version;
   }
 
-  getWindowByName(name: string) {
+  getWindow(params: { key: 'id' | 'name'; value: string }) {
     try {
-      const a = child_process.execSync(`xprop -name ${name}`, {
-        encoding: 'utf-8',
-        stdio: 'pipe',
-      });
-      return this.getProps(a);
+      const process = child_process.execSync(
+        `xprop -${params.key} ${params.value}`,
+        {
+          encoding: 'utf-8',
+          stdio: 'pipe',
+        }
+      );
+      return this.getProps(process);
     } catch (e: any) {
-      if (e.message.includes('No window')) {
-        return null;
-      }
-      return e.message;
+      this.errorLogs[Date.now()] = [params, e.message];
+      return null;
     }
   }
 
