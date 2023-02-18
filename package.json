@@ -8,7 +8,8 @@
     "lib": "lib"
   },
   "scripts": {
-    "start": "tsc; node dist/index.js"
+    "tsc": "tsc",
+    "start": "nodemon lib/index.js"
   },
   "keywords": [],
   "author": "",

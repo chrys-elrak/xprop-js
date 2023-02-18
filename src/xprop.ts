@@ -1,4 +1,6 @@
 import * as child_process from 'node:child_process';
+import { checkCommand } from './utils/checkCommand';
+import { canBeANumber } from './utils/canBeNumber';
 
 export default class XPROP {
     constructor() {
@@ -13,36 +15,43 @@ export default class XPROP {
     }
 
     run() {
-        child_process.exec('xprop', (error, stdout, stderr) => {
+        child_process.exec('xprop', (error, stdout, _) => {
             if (error) {
                 // console.log(error);
                 return;
             }
             const params: { [key: string]: any; } = {};
             const lines = stdout.split('\n');
+            // Map the lines to key value pairs
             for (const line of lines) {
+                /*
+                * Try to split the line by '=' to get the key value pair then trim the spaces
+                * If the length is 2, then it is a key value pair
+                * Else, it can be a key value pair separated by a colon
+                */
                 const keyvalue = line.split('=').map(it => it.trim());
                 if (keyvalue.length === 2) {
                     const v = keyvalue[1].replace(/\t|"/g, '').trim();
                     params[keyvalue[0]] = canBeANumber(v, true);
                 } else {
                     const [key, value] = keyvalue[0].split(':').map(it => it.trim().replace(/\t|\n/g, '~').trim());
-                    if (key && value) {
+                    if (key) {
                         if (canBeANumber(value)) {
                             params[key] = Number(value);
                         } else {
-                            params[key] = value;
-                        }
-                        if (key.startsWith('\t')) {
-                        } else {
+                            params[key] = value ? value : null;
                         }
                     }
                 }
             }
-            // get the last line
+            /**
+             * for each key in params
+             * if the value is a string and contains a comma
+             * then split the string by comma and convert to array
+             */
             let prevKey = '';
             for (const key of Object.keys(params)) {
-                const value: string = params[key];
+                const value: string = params[key] || '';
                 const arr = value.toString().split(',').map(it => it.trim());
                 if (arr.length > 1) {
                     // Try to convert to number
@@ -53,17 +62,27 @@ export default class XPROP {
                         return a;
                     });
                 }
-                // check if key contains space
-                // if it does, then it is a subkey
+                /**
+                 * if the key contains a space and is not empty
+                 * then it is a nested object
+                 * if the previous object is an array then push the current object to the array else create a new array
+                 */
                 if (key.includes(' ') && key !== '') {
-                    const currentValue = params[key];
+                    let currentValue = params[key];
                     const previousObj = params[prevKey];
+                    /**
+                     * if the current value is a string and contains 'by'
+                     * then split the string by 'by' and convert to array
+                     * eg: '1920 by 1080' => [1920, 1080]
+                     */
+                    if (typeof currentValue === 'string' && /\d by \d/g.test(currentValue)) {
+                        currentValue = currentValue.split(' by ').map((it: string) => Number(it));
+                    }
                     if (previousObj) {
                         if (Array.isArray(previousObj)) {
                             if (currentValue) {
                                 previousObj.push({ [key]: currentValue });
                             } else {
-                                console.log(currentValue);
                                 previousObj.push(key);
                             }
                         } else {
@@ -97,28 +116,4 @@ export default class XPROP {
         });
 
     }
-}
-
-function checkCommand(cmd: string = 'xprop'): Promise<boolean> {
-    // Check if command is available
-    // return true if it is
-    // return false if it is not
-    return new Promise((resolve, reject) => {
-        child_process.exec(`command -v ${cmd}`, (error, stdout, stderr) => {
-            if (error) {
-                return reject(false);
-            }
-            return resolve(true);
-        });
-    });
-}
-
-function canBeANumber(value: string, convert: boolean = false): boolean | number | string {
-    const can = !isNaN(Number(value)) && !value.startsWith('0x') && value.length > 0;
-    if (can && convert) {
-        return Number(value);
-    } else if (!can && convert) {
-        return value;
-    }
-    return can;
 }

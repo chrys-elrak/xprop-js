@@ -1,4 +1,4 @@
-import X from './lib/xprop';
+import X from './src/xprop';
 
 const x = new X();
 
